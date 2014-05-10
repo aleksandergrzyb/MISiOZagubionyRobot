@@ -68,6 +68,7 @@ class MapGenerator:
         self.path = path
         with open(self.path, 'w') as f:
             f.write('%d \n' % self.num_of_bldgs)
+            f.write('%d %d \n' % (self.rows, self.cols))
             for i in range(self.num_of_bldgs):
                 f.write('%d %d %d %d %d \n' % (self.x[i], self.y[i],self.height[i], self.width[i], self.length[i]))
                           
