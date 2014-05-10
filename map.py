@@ -37,17 +37,18 @@ class MapGenerator:
                 if tiles_type[i][j] == 1:
                     for a in range(0, 4):
                         for b in range(0, 6):
-                            l = randint(2,4)
-                            w = randint(2,3)
-                            h = randint(2,9)
-                            x = 1 + a*5
-                            y = 1 + b*3
-                            if l < 4:
-                                x += randint(0, 4-l)
-                            if w < 3:
-                                y += randint(0, 3-w)
-                            x += i*20
-                            y += j*20
+                            l = 1.0 + 2.0*random()
+                            w = 1.0 + random()
+                            h = 0.0 + 10.0*random()
+                            x = 1.0 + float(a)*5.0
+                            y = 1.0 + float(b)*3.0
+                            if l < 4.0:
+                                x += (4.0-l)*random()
+                            if w < 3.0:
+                                y += (3.0-w)*random()
+
+                            x += float(i)*20.0
+                            y += float(j)*20.0
                             self.height.append(h)
                             self.length.append(l)
                             self.width.append(w)
@@ -70,7 +71,7 @@ class MapGenerator:
             f.write('%d \n' % self.num_of_bldgs)
             f.write('%d %d \n' % (self.rows, self.cols))
             for i in range(self.num_of_bldgs):
-                f.write('%d %d %d %d %d \n' % (self.x[i], self.y[i],self.height[i], self.width[i], self.length[i]))
+                f.write('%.2f %.2f %.2f %.2f %.2f \n' % (self.x[i], self.y[i],self.height[i], self.width[i], self.length[i]))
                           
     def simple_vis(self):
         # Simple visualization of the created map
@@ -78,7 +79,12 @@ class MapGenerator:
         master = Tk()
         dis = Canvas(master, width=self.rows*160, height=self.cols*160)
         for i in range(self.num_of_bldgs):
-            dis.create_rectangle(self.x[i]*8, self.y[i]*8, self.x[i]*8+self.length[i]*8, self.y[i]*8+self.width[i]*8, fill="blue") 
+            if self.height[i] <= 3.33:
+                dis.create_rectangle(self.x[i]*8, self.y[i]*8, self.x[i]*8+self.length[i]*8, self.y[i]*8+self.width[i]*8, fill="blue") 
+            elif self.height[i] <= 6.66:
+                dis.create_rectangle(self.x[i]*8, self.y[i]*8, self.x[i]*8+self.length[i]*8, self.y[i]*8+self.width[i]*8, fill="green") 
+            else:
+                dis.create_rectangle(self.x[i]*8, self.y[i]*8, self.x[i]*8+self.length[i]*8, self.y[i]*8+self.width[i]*8, fill="red") 
         dis.pack()
         mainloop()
                                         
