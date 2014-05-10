@@ -10,6 +10,8 @@ class World:
         self.quadro_y = 0
         self.observed_bldgs = []
         self.observed_centers = []
+        self.quadro_obs_bldgs = []
+        self.quadro_obs_centers = []
         self.centers = []
         # sensor distances 1, 2 and 3
         self.range1 = 12
@@ -17,6 +19,8 @@ class World:
         self.range3 = 40
         self.sensor_error2 = {"x": 0.5, "y":0.5, "length":0.5, "width":0.5, "height":0.5}
         self.sensor_error3 = {"x": 1.0, "y":1.0, "length":1.0, "width":1.0, "height":1.0}
+        self.dist_punishment = 1.0
+        self.height_punishment = 1.0
 
     def read_map(self):
         self.x = []
@@ -41,14 +45,14 @@ class World:
                     self.width.append(float(params[3]))
                     self.length.append(float(params[4]))
         for i in range(self.num_of_buildings):
-            self.centers.append([float(self.x[i]+ 0.5*float(self.length[i])), float(self.y[i] + 0.5*float(self.width[i]))])
+            self.centers.append({"x":float(self.x[i]+ 0.5*float(self.length[i])), "y":float(self.y[i] + 0.5*float(self.width[i]))})
 
     def observe(self, x, y):
         # returns list of observed houses within range of 8
         # Manhattan distance
         self.observed_bldgs = []
         for i in range(self.num_of_buildings):
-            if abs(self.centers[i][0]-x) + abs(self.centers[i][1]-y) <= self.range1:
+            if abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range1:
                 self.observed_bldgs.append(
                     {"number":i, 
                      "x": self.x[i],
@@ -57,7 +61,7 @@ class World:
                      "width": self.width[i],
                      "length": self.length[i]
                      })
-            elif abs(self.centers[i][0]-x) + abs(self.centers[i][1]-y) <= self.range2:
+            elif abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range2:
                 if self.length[i]<=1 and self.width <= 1:
                     pass
                 else:
@@ -65,11 +69,11 @@ class World:
                     {"number":i, 
                      "x": self.x[i] + self.sensor_error2["x"]*random(),
                      "y": self.y[i] + self.sensor_error2["y"]*random(),
-                     "height": self.height[i] + self.sensor_error2["height"]*random(),
+                     "height": self.height[i] + self.sensor_error2["height"]*random() - self.sensor_error2["height"]*0.5,
                      "width": self.width[i] + self.sensor_error2["width"]*random(),
                      "length": self.length[i] + self.sensor_error2["length"]*random()
                      })
-            elif abs(self.centers[i][0]-x) + abs(self.centers[i][1]-y) <= self.range3:
+            elif abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range3:
                 if self.length[i]<=2 and self.width <= 2:
                     pass
                 else:
@@ -83,9 +87,51 @@ class World:
                      })
         self.observed_centers = []
         for i in range(len(self.observed_bldgs)):
-            self.observed_centers.append([self.observed_bldgs[i]["x"] + 0.5*self.observed_bldgs[i]["length"],
-                                          self.observed_bldgs[i]["y"] + 0.5*self.observed_bldgs[i]["width"]]) 
+            self.observed_centers.append({"x":self.observed_bldgs[i]["x"] + 0.5*self.observed_bldgs[i]["length"],
+                                          "y":self.observed_bldgs[i]["y"] + 0.5*self.observed_bldgs[i]["width"]}) 
         return self.observed_bldgs, self.observed_centers
+
+    def quadro_observe(self):
+        # Absolute locations of buildings and their centres seen by quadrocopter
+        self.quadro_obs_bldgs, self.quadro_obs_centers = self.observe(self.quadro_x, self.quadro_y)
+        for bldg in self.quadro_obs_bldgs:
+            bldg["x"] -= self.quadro_x
+            bldg["y"] -= self.quadro_y
+        for center in self.quadro_obs_centers:
+            center["x"] -= self.quadro_x
+            center["y"] -= self.quadro_y 
+
+    # find nearest building seen by the quadrocopter
+    # calculate error based on distance to the nearest buidling and 
+    # difference in heights
+    # WARNING Use quadro_observe before running for get_error for particles
+    def get_error(self, x, y):
+        # make an observation
+        observed_bldgs, observed_centers = self.observe(x, y)
+        # Calculate relative distance to buildings and their centers
+        for bldg in observed_bldgs:
+            bldg["x"] -= x
+            bldg["y"] -= y
+        for center in observed_centers:
+            center["x"] -= x
+            center["y"] -= y
+        # find nearest building
+        for i in range(len(observed_centers)):
+            distance = 99999.0
+            nearest_bldg = 0
+            error = 0.0
+            #calculate euclides distance to nearest building seen by quadro and identify it
+            for a in range(len(self.quadro_obs_bldgs)):
+                temp = pow(observed_centers[i]["x"]-self.quadro_obs_centers[a]["x"], 2.0)\
+                     + pow(observed_centers[i]["y"]-self.quadro_obs_centers[a]["y"], 2.0)     
+                if temp < distance:
+                    distance = temp
+                    nearest_bldg = a
+            error += distance*self.dist_punishment + pow(observed_bldgs[i]["height"]-self.quadro_obs_bldgs[nearest_bldg]["height"], 2)*self.height_punishment
+            # When particle is on edge, less buildings are visible
+            # This standarizes the error
+            error = error / len(observed_bldgs)
+        return error*100.0 
 
     def visualize_observed_buildings(self):
         master = Tk()
@@ -94,9 +140,10 @@ class World:
             dis.create_rectangle(self.observed_bldgs[i]["x"]*8, self.observed_bldgs[i]["y"]*8, 
                      self.observed_bldgs[i]["x"]*8 + self.observed_bldgs[i]["length"]*8, 
                      self.observed_bldgs[i]["y"]*8 + self.observed_bldgs[i]["width"]*8, 
-                     fill="blue") 
+                     fill="blue")
         dis.pack()
         mainloop()
+
 
 world = World("/home/jacek/Studia/MISIO/MISiOZagubionyRobot/mapa.txt")
 world.read_map()
@@ -112,4 +159,14 @@ print obs_cent
 #                          fill="blue") 
 # dis.pack()
 # mainloop()
+world.quadro_x = 10.0
+world.quadro_y = 10.0
+world.quadro_observe()
+
+for i in range(20):
+    s = ''
+    for j in range(20):
+        s += str('%d ' % world.get_error(float(i), float(j)))
+    print (s + '\n')
+
 world.visualize_observed_buildings()
