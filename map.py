@@ -1,43 +1,86 @@
 from argparse import ArgumentParser
-from random import randint
+from random import randint, random
+from Tkinter import *
 
-map_row_num = 10
-map_col_num = 10
-map_path = ""
+# Example of use
+# python map.py -r 5 -c 5 -f /home/jacek/mapa.txt -v
 
-def generate_map():
-    if map_row_num < 3 or map_col_num < 3:
-        return 'Map must be 3x3 or gigger'
-    tiles_type = []
-    for i in range(map_row_num):
-        for j in range(map_col_num):
-            tiles_type.append()
-            tiles_type[i].append(randint(1,3))
-    bldgs = []   # buildings
-    for i in range(map_row_num):
-        for j in range(map_col_num):
-            if tiles_type[i][j] == 1:
-                # teren o niskiej zabudowie
-                for a in range(4):
-                    for b in range(8):
-                        l = randint(1,4)
-                        w = randint(1,3)
-                        h = randint(1,3)
-                        x = 1 + a*5
-                        y = 1 + b*3
-                        if l < 4:
-                            x += randint(0, 4-l)
-                        if w < 3:
-                            y += randint(0, 3-y)
-                        bldgs.append({"length":l, "width":w, "height":h,\
-                                      "x":x, "y":y})
-            if tiles_type[i][j] == 2:
-                # teren o średniej zabudowie
-            if tiles_type[i][j] == 3:
-                # teren o wysokiej zabudowie
-    # losowy obrót o 0, 90, 180 lub 270 stopni
-    # dodanie wsp. bazowych do wsp. bezwzględnych
-                        
+class MapGenerator:
+    def __init__(self, path_to_file, rows, cols):
+        self.rows = rows
+        self.cols = cols
+        self.path = path_to_file
+        self.num_of_bldgs = 0
+
+    def generate_map(self):
+        if self.rows < 1 or self.cols < 1:
+            return 'Map must be 3x3 or bigger'
+        tiles_type = []
+        # Pick type of tile
+        # TODO change range of tiles generation to 3
+        for i in range(self.rows):
+            tiles_type.append([])
+            for j in range(self.cols):
+                tiles_type[i].append(randint(1,1))
+
+        # Each building is represented by 5 params
+        # height, length and width
+        # x and y position of bottom leftmost corner
+        self.height = []
+        self.length = []
+        self.width = []
+        self.x = []
+        self.y = []
+        for i in range(self.rows):
+            for j in range(self.cols):
+                # low, dense buildings
+                if tiles_type[i][j] == 1:
+                    for a in range(0, 4):
+                        for b in range(0, 6):
+                            l = randint(2,4)
+                            w = randint(2,3)
+                            h = randint(2,9)
+                            x = 1 + a*5
+                            y = 1 + b*3
+                            if l < 4:
+                                x += randint(0, 4-l)
+                            if w < 3:
+                                y += randint(0, 3-w)
+                            x += i*20
+                            y += j*20
+                            self.height.append(h)
+                            self.length.append(l)
+                            self.width.append(w)
+                            self.x.append(x)
+                            self.y.append(y)
+                            self.num_of_bldgs += 1
+                if tiles_type[i][j] == 2:
+                    pass
+                    # TODO teren o sredniej zabudowie
+                if tiles_type[i][j] == 3:
+                    pass
+                    # TODO teren o wysokiej zabudowie
+        # TODO
+        # random rotation of 0, 90, 180 or 270 degrees
+        # dodanie wsp. bazowych do wsp. bezwzglednych
+
+    def save_map(self, path="/home/jacek/Studia/MISIO/MISiOZagubionyRobot/mapa.txt"):
+        self.path = path
+        with open(self.path, 'w') as f:
+            f.write('%d \n' % self.num_of_bldgs)
+            for i in range(self.num_of_bldgs):
+                f.write('%d %d %d %d %d \n' % (self.x[i], self.y[i],self.height[i], self.width[i], self.length[i]))
+                          
+    def simple_vis(self):
+        # Simple visualization of the created map
+        # Using Tkinter
+        master = Tk()
+        dis = Canvas(master, width=self.rows*160, height=self.cols*160)
+        for i in range(self.num_of_bldgs):
+            dis.create_rectangle(self.x[i]*8, self.y[i]*8, self.x[i]*8+self.length[i]*8, self.y[i]*8+self.width[i]*8, fill="blue") 
+        dis.pack()
+        mainloop()
+                                        
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-r", "--rows", dest="map_row_num",
@@ -45,4 +88,13 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cols", dest="map_col_num",
                         help="number of columns", metavar="COLS", default=10)
     parser.add_argument("-f", "--file", dest="map_path",
-                        help="file path for saving", metavat="PATH", default='./map')
+                        help="file path for saving", metavar="PATH", default='./map')
+    parser.add_argument("-v", "--visualize", dest="map_visualize",
+                        help="visualize the map", metavar="VISUAL", action='store_const',
+                        const=True, default=False)
+    args = parser.parse_args()
+    MG = MapGenerator(args.map_path, int(args.map_row_num), int(args.map_col_num))
+    MG.generate_map()
+    MG.save_map()
+    if args.map_visualize == 1:
+        MG.simple_vis()
