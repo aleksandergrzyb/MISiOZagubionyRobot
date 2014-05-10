@@ -1,5 +1,6 @@
-from random import random, randint
+from random import random, randint, seed
 from Tkinter import *
+from math import sqrt
 
 class World:
     def __init__(self, path):
@@ -14,13 +15,14 @@ class World:
         self.quadro_obs_centers = []
         self.centers = []
         # sensor distances 1, 2 and 3
-        self.range1 = 12
-        self.range2 = 25
-        self.range3 = 40
-        self.sensor_error2 = {"x": 0.5, "y":0.5, "length":0.5, "width":0.5, "height":0.5}
-        self.sensor_error3 = {"x": 1.0, "y":1.0, "length":1.0, "width":1.0, "height":1.0}
+        self.range1 = 4
+        self.range2 = 6
+        self.range3 = 8
+        # error max for different distances
+        self.sensor_error2 = {"x": 2.0, "y":2.0, "length":2.0, "width":2.0, "height":2.0}
+        self.sensor_error3 = {"x": 4.0, "y":4.0, "length":4.0, "width":4.0, "height":4.0}
         self.dist_punishment = 1.0
-        self.height_punishment = 1.0
+        self.height_punishment = 2.0
 
     def read_map(self):
         self.x = []
@@ -49,10 +51,11 @@ class World:
 
     def observe(self, x, y):
         # returns list of observed houses within range of 8
-        # Manhattan distance
+        # Euclidian distance
         self.observed_bldgs = []
         for i in range(self.num_of_buildings):
-            if abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range1:
+            if sqrt(pow(self.centers[i]["x"]-x, 2.0) + pow(self.centers[i]["y"]-y, 2)) <= self.range1:
+                # Here you can see everything as it is
                 self.observed_bldgs.append(
                     {"number":i, 
                      "x": self.x[i],
@@ -61,29 +64,31 @@ class World:
                      "width": self.width[i],
                      "length": self.length[i]
                      })
-            elif abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range2:
+            elif  self.range1 < sqrt(pow(self.centers[i]["x"]-x, 2.0) + pow(self.centers[i]["y"]-y, 2)) <= self.range2:
                 if self.length[i]<=1 and self.width <= 1:
+                    # small buidlings are not visible
                     pass
                 else:
+                    # everything is shifted and blurred
                     self.observed_bldgs.append(
                     {"number":i, 
-                     "x": self.x[i] + self.sensor_error2["x"]*random(),
-                     "y": self.y[i] + self.sensor_error2["y"]*random(),
+                     "x": self.x[i] + self.sensor_error2["x"]*random() - self.sensor_error2["x"]*0.5,
+                     "y": self.y[i] + self.sensor_error2["y"]*random() - self.sensor_error2["y"]*0.5,
                      "height": self.height[i] + self.sensor_error2["height"]*random() - self.sensor_error2["height"]*0.5,
-                     "width": self.width[i] + self.sensor_error2["width"]*random(),
-                     "length": self.length[i] + self.sensor_error2["length"]*random()
+                     "width": self.width[i] + self.sensor_error2["width"]*random() - self.sensor_error2["width"]*0.5,
+                     "length": self.length[i] + self.sensor_error2["length"]*random() - self.sensor_error2["length"]*0.5
                      })
-            elif abs(self.centers[i]["x"]-x) + abs(self.centers[i]["y"]-y) <= self.range3:
+            elif self.range2 < sqrt(pow(self.centers[i]["x"]-x, 2.0) + pow(self.centers[i]["y"]-y, 2)) <= self.range3:
                 if self.length[i]<=2 and self.width <= 2:
                     pass
                 else:
                     self.observed_bldgs.append(
                     {"number":i, 
-                     "x": self.x[i] + self.sensor_error3["x"]*random(),
-                     "y": self.y[i] + self.sensor_error3["y"]*random(),
-                     "height": self.height[i] + self.sensor_error3["height"]*random(),
-                     "width": self.width[i] + self.sensor_error3["width"]*random(),
-                     "length": self.length[i] + self.sensor_error3["length"]*random()
+                     "x": self.x[i] + self.sensor_error3["x"]*random() - self.sensor_error3["x"]*0.5,
+                     "y": self.y[i] + self.sensor_error3["y"]*random() - self.sensor_error3["y"]*0.5,
+                     "height": self.height[i] + self.sensor_error3["height"]*random() - self.sensor_error3["height"]*0.5,
+                     "width": self.width[i] + self.sensor_error3["width"]*random() - self.sensor_error3["width"]*0.5,
+                     "length": self.length[i] + self.sensor_error3["length"]*random() - self.sensor_error3["length"]*0.5
                      })
         self.observed_centers = []
         for i in range(len(self.observed_bldgs)):
@@ -92,7 +97,7 @@ class World:
         return self.observed_bldgs, self.observed_centers
 
     def quadro_observe(self):
-        # Absolute locations of buildings and their centres seen by quadrocopter
+        # Relative locations of buildings and their centres to the quadrocopter
         self.quadro_obs_bldgs, self.quadro_obs_centers = self.observe(self.quadro_x, self.quadro_y)
         for bldg in self.quadro_obs_bldgs:
             bldg["x"] -= self.quadro_x
@@ -127,15 +132,17 @@ class World:
                 if temp < distance:
                     distance = temp
                     nearest_bldg = a
-            error += distance*self.dist_punishment + pow(observed_bldgs[i]["height"]-self.quadro_obs_bldgs[nearest_bldg]["height"], 2)*self.height_punishment
+            error += distance*self.dist_punishment + pow(observed_bldgs[i]["height"]-self.quadro_obs_bldgs[nearest_bldg]["height"], 2.0)*self.height_punishment
             # When particle is on edge, less buildings are visible
-            # This standarizes the error
-            error = error / len(observed_bldgs)
-        return error*100.0 
+            # This promotes measurements with many buildings visible
+            error = error / pow(len(observed_bldgs), 2.0)
+            # error = error / len(observed_bldgs)
+        return error*10000.0 
 
     def visualize_observed_buildings(self):
         master = Tk()
         dis = Canvas(master, width=world.rows*160, height=world.cols*160)
+        print self.observed_bldgs
         for i in range(len(self.observed_bldgs)):
             dis.create_rectangle(self.observed_bldgs[i]["x"]*8, self.observed_bldgs[i]["y"]*8, 
                      self.observed_bldgs[i]["x"]*8 + self.observed_bldgs[i]["length"]*8, 
@@ -144,23 +151,13 @@ class World:
         dis.pack()
         mainloop()
 
+seed()
 
 world = World("/home/jacek/Studia/MISIO/MISiOZagubionyRobot/mapa.txt")
 world.read_map()
-obs_bldgs, obs_cent = world.observe(0, 0)
-print world.centers
-print obs_cent
-# master = Tk()
-# dis = Canvas(master, width=world.rows*160, height=world.cols*160)
-# for i in range(len(obs_bldgs)):
-#     dis.create_rectangle(obs_bldgs[i]["x"]*8, obs_bldgs[i]["y"]*8, 
-#                          obs_bldgs[i]["x"]*8 + obs_bldgs[i]["length"]*8, 
-#                          obs_bldgs[i]["y"]*8 + obs_bldgs[i]["width"]*8, 
-#                          fill="blue") 
-# dis.pack()
-# mainloop()
-world.quadro_x = 10.0
-world.quadro_y = 10.0
+
+world.quadro_x = 4.0
+world.quadro_y = 4.0
 world.quadro_observe()
 
 for i in range(20):
@@ -169,4 +166,4 @@ for i in range(20):
         s += str('%d ' % world.get_error(float(i), float(j)))
     print (s + '\n')
 
-world.visualize_observed_buildings()
+#world.visualize_observed_buildings()
