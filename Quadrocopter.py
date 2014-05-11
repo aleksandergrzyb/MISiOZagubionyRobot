@@ -49,6 +49,7 @@ class Quadrocopter:
         self.senseNoise = float(newSenseNoise)
     
     def sense(self):
+        pass
         # TODO
 
         # Z = []
@@ -59,6 +60,7 @@ class Quadrocopter:
         # return Z
     
     def move(self, turn, forward):
+        pass
         # TODO
 
         # if forward < 0:
@@ -86,6 +88,7 @@ class Quadrocopter:
         return exp(- ((mu - x) ** 2) / (sigma ** 2) / 2.0) / sqrt(2.0 * pi * (sigma ** 2))
     
     def measurementProbability(self, measurement):
+        pass
         # TODO
 
         # calculates how likely a measurement should be
@@ -96,5 +99,5 @@ class Quadrocopter:
         # return prob
 
     def __repr__(self):
-        return '[x=%.6s y=%.6s orientation=%.6s altitude=%.6s]' % (str(self.x), str(self.y), str(self.orientation), str(self.altitude))
+        return '[x = %.6s y = %.6s orientation = %.6s altitude = %.6s]' % (str(self.x), str(self.y), str(self.orientation), str(self.altitude))
 
