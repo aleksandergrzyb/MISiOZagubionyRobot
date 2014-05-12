@@ -31,6 +31,8 @@ class MapGenerator:
         self.width = []
         self.x = []
         self.y = []
+        self.centerX = []
+        self.centerY = []
         for i in range(self.rows):
             for j in range(self.cols):
                 # low, dense buildings
@@ -54,6 +56,8 @@ class MapGenerator:
                             self.width.append(w)
                             self.x.append(x)
                             self.y.append(y)
+                            self.centerX.append(x + w * 0.5)
+                            self.centerY.append(y + h * 0.5)
                             self.num_of_bldgs += 1
                 if tiles_type[i][j] == 2:
                     pass
